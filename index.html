@@ -1008,12 +1008,22 @@ body{font-feature-settings:'cv11','ss01';letter-spacing:-0.006em}
         </div>
         <div class="flex-1">
           <h4 class="text-sm font-bold text-gray-900">Proaktive Ausschreibungssuche</h4>
-          <p class="text-xs text-gray-500 mt-0.5 mb-3">Sucht auf TED.europa.eu nach neuen IT-Ausschreibungen in den Bundesländern, in denen eure Ziel-Organisationen aktiv sind — gefiltert nach euren CPV-Codes.</p>
+          <p class="text-xs text-gray-500 mt-0.5 mb-3">Sucht auf TED.europa.eu nach neuen IT-Ausschreibungen in den Bundesländern, in denen eure Ziel-Organisationen aktiv sind. Bereits abgelaufene (vergebene) Ausschreibungen werden ausgeblendet.</p>
           <div class="flex flex-wrap gap-2 mb-3">
             <template x-for="bl in rvBundeslaender" :key="bl">
               <span class="text-xs px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-medium" x-text="bl"></span>
             </template>
             <template x-if="rvBundeslaender.length===0"><span class="text-xs text-gray-400">Keine Bundesländer gefunden — erst Verträge laden</span></template>
+          </div>
+          <div class="flex flex-wrap items-center gap-4 mb-3">
+            <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+              <input type="checkbox" x-model="radarBroadIT" class="w-3.5 h-3.5 rounded text-indigo-600">
+              <span><b>Alle IT-Ausschreibungen</b> (breit scannen — egal welche IT-Sache)</span>
+            </label>
+            <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+              <input type="checkbox" x-model="radarHideExpired" class="w-3.5 h-3.5 rounded text-indigo-600">
+              <span>Abgelaufene ausblenden</span>
+            </label>
           </div>
           <button @click="scanBundeslandRadar()" :disabled="rvBundeslandRadarLoading||rv.length===0" class="flex items-center gap-2 text-sm px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-50 transition">
             <svg x-show="rvBundeslandRadarLoading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -1035,6 +1045,13 @@ body{font-feature-settings:'cv11','ss01';letter-spacing:-0.006em}
     <!-- Ergebnisse: nach Bundesland gruppiert -->
     <template x-if="rvBundeslandRadar.length>0">
       <div class="space-y-5">
+        <template x-if="radarHideExpired && rvRadarExpiredCount>0">
+          <div class="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5">
+            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+            <span><b x-text="rvRadarExpiredCount"></b> bereits abgelaufene (vergebene) Ausschreibungen ausgeblendet.</span>
+            <button @click="radarHideExpired=false" class="ml-auto text-indigo-600 hover:underline font-medium flex-shrink-0">Trotzdem anzeigen</button>
+          </div>
+        </template>
         <template x-for="grp in rvRadarGrouped" :key="grp.land">
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div class="px-5 py-3 bg-slate-50 border-b border-gray-100 flex items-center justify-between">
@@ -1530,6 +1547,8 @@ function BidOS(){
     {key:'itsm_asset_documentation',label:'ITSM & Asset Management',codes:['48218000-9','48311000-1','48613000-8','72251000-9','72261000-2']},
     {key:'managed_services_cloud',label:'Managed Services & Cloud',codes:['48620000-1','48610000-7','72000000-5','72222300-0','72250000-2','72253000-3','72253200-5','72260000-5','72315000-6','72611000-6']},
   ];
+  // Breite IT-Abdeckung: CPV-Hauptgruppen, fangen "egal welche IT-Sache" ab (Hardware, Software, IT-Dienste, Netzwerk, Telekom, Installation, Wartung)
+  const ALL_IT_CPV=['30200000','48000000','72000000','32400000','32500000','51600000','50300000','50310000','50320000','72600000','30230000','48800000','32420000','32570000'];
   return {
     STAGES, CPV_CATS, view:'dashboard', tab:'overview', online:false, loading:false, toast:'', toastErr:false,
     n8n: localStorage.getItem('bidos_n8n')||'https://stage.automate.enthus.de',
@@ -1564,7 +1583,7 @@ function BidOS(){
     MW_LABELS:{fachlich:'Fachliche Passung',nachweise:'Zertifikate & Nachweise',referenzen:'Referenzen',rahmenvertrag:'Rahmenvertrags-Bezug',historie:'Erfahrung mit Vergabestelle',wirtschaftlich:'Wirtschaftl. Potenzial',frist:'Frist & Bearbeitbarkeit',compliance:'Compliance-Sicherheit',lieferrisiko:'Liefersicherheit',strategie:'Strategischer Fit'},
     matchWeights:(()=>{try{const w=JSON.parse(localStorage.getItem('bidos_match_weights'));if(w&&typeof w==='object')return w;}catch(e){}return{fachlich:3,nachweise:3,referenzen:2,rahmenvertrag:2,historie:2,wirtschaftlich:2,frist:2,compliance:2,lieferrisiko:1,strategie:1};})(),
     rv:[], rvLoading:false, rvFilter:{status:'',kategorie:'',bundesland:'',relevant_only:true,search:'',auslauf:''}, rvDetail:null,
-    rvTab:'contracts', rvBundeslandRadar:[], rvBundeslandRadarLoading:false,
+    rvTab:'contracts', rvBundeslandRadar:[], rvBundeslandRadarLoading:false, radarHideExpired:true, radarBroadIT:true,
     accountPlanData:[], accountPlanLoading:false, accountPlanFilter:{search:'',bundesland:'',only_with_wins:false,only_new_tenders:false},
     bk:[], bkLoading:false, bkFilter:{search:'',bundesland:'',org_typ:'',hpe_only:false,prio_only:false}, bkDetail:null,
     profile:{name:'',description:'',team_size:'',services:[],keywords:[],regions:[],cpv_categories:['datacenter_server_storage','network_connectivity','modern_workplace_clients','security_isms_defenderbox','backup_bcm_dpis','itsm_asset_documentation','managed_services_cloud']},
@@ -1682,7 +1701,7 @@ function BidOS(){
     },
     async loadBK(){this.bkLoading=true;const r=await this.req('GET','/bund-kunden');this.bkLoading=false;if(r&&r.success)this.bk=r.kunden||[];},
     async loadAccountPlan(){this.accountPlanLoading=true;try{const wins=this.bids.filter(b=>b.stage==='won')||[];const activeRVs=this.rv.filter(r=>['aktiv','vergabe'].includes(r.status))||[];this.accountPlanData=(this.bk||[]).map(bk=>{const bkName=bk.name||'';return{...bk,wins:wins.filter(b=>(b.client||'').includes(bkName)||(bkName).includes(b.client||'')),active_rv:activeRVs.filter(r=>(r.organisation||'').includes(bkName)||(bkName).includes(r.organisation||'')),new_tenders:[]}});}finally{this.accountPlanLoading=false;}},
-    async scanBuyerTED(account){this.accountPlanLoading=true;try{const resp=await this.req('POST','/ted-scan-buyer',{buyer_name:account.name,days_back:30,cpv_codes:this.profile.cpv_categories||[]});if(resp&&resp.success){const idx=this.accountPlanData.findIndex(a=>a.id===account.id);if(idx>=0)this.accountPlanData[idx].new_tenders=resp.tenders||[];this.toast='✓ TED-Scan: '+resp.tenders.length+' neue Ausschreibungen';}else{this.toast='❌ TED-Scan fehlgeschlagen';}}catch(e){this.toast='❌ Fehler: '+(e.message||'n8n nicht erreichbar');}finally{this.accountPlanLoading=false;}},
+    async scanBuyerTED(account){this.accountPlanLoading=true;try{const resp=await this.req('POST','/ted-scan-buyer',{buyer_name:account.name,days_back:30,cpv_codes:ALL_IT_CPV});if(resp&&resp.success){let tenders=(resp.tenders||[]).filter(t=>!this.tenderIsExpired(t));const idx=this.accountPlanData.findIndex(a=>a.id===account.id);if(idx>=0)this.accountPlanData[idx].new_tenders=tenders;this.toast='✓ TED-Scan: '+tenders.length+' offene Ausschreibungen';}else{this.toast='❌ TED-Scan fehlgeschlagen';}}catch(e){this.toast='❌ Fehler: '+(e.message||'n8n nicht erreichbar');}finally{this.accountPlanLoading=false;}},
     rvIsLegacy(r){if(!r)return false;if(r.status==='abgeschlossen')return true;const y=parseInt(String(r.laufzeit_ende||'').slice(0,4));return !!y&&!isNaN(y)&&y<new Date().getFullYear();},
     get rvFiltered(){
       let list=this.rv;
@@ -1704,15 +1723,18 @@ function BidOS(){
       this.rv.forEach(r=>{const key=r.bundesland||'Unbekannt';if(!map[key])map[key]={bundesland:key,nuts_code:r.nuts_code||'',orgs:new Set(),vertraege:[],inVergabe:0,auslauf:0,aktiv:0,legacy:0};map[key].orgs.add(r.organisation);map[key].vertraege.push(r);if(r.status==='vergabe')map[key].inVergabe++;if(r.status==='auslauf')map[key].auslauf++;if(r.status==='aktiv')map[key].aktiv++;if(this.rvIsLegacy(r))map[key].legacy++;});
       return Object.values(map).map(g=>({...g,orgs:[...g.orgs]})).sort((a,b)=>(b.inVergabe+b.auslauf)-(a.inVergabe+a.auslauf)||b.vertraege.length-a.vertraege.length);
     },
+    tenderIsExpired(t){if(!t)return false;const dl=t.deadline||t.submission_deadline;if(!dl)return false;const d=this.daysUntil(dl);return d!==null&&d<0;},
+    get rvRadarExpiredCount(){return this.rvBundeslandRadar.filter(t=>this.tenderIsExpired(t)).length;},
     get rvRadarGrouped(){
       const map={};
-      this.rvBundeslandRadar.forEach(t=>{const key=t.bundesland||t.nuts_code||'DE';if(!map[key])map[key]=[];map[key].push(t);});
+      this.rvBundeslandRadar.forEach(t=>{if(this.radarHideExpired&&this.tenderIsExpired(t))return;const key=t.bundesland||t.nuts_code||'DE';if(!map[key])map[key]=[];map[key].push(t);});
       return Object.entries(map).map(([land,items])=>({land,items})).sort((a,b)=>b.items.length-a.items.length);
     },
     async scanBundeslandRadar(){
       this.rvBundeslandRadarLoading=true;
-      const activeCats=CPV_CATS.filter(c=>(this.profile.cpv_categories||[]).includes(c.key));
-      const cpvCodes=activeCats.flatMap(c=>c.codes.map(code=>code.replace(/-\d$/,'')));
+      let cpvCodes;
+      if(this.radarBroadIT){cpvCodes=ALL_IT_CPV;}
+      else{const activeCats=CPV_CATS.filter(c=>(this.profile.cpv_categories||[]).includes(c.key));cpvCodes=activeCats.flatMap(c=>c.codes.map(code=>code.replace(/-\d$/,'')));}
       const nutsCodes=['DE1','DE2','DE3','DE4','DE5','DE6','DE7','DE8','DE9','DEA','DEB','DEC','DED','DEE','DEF','DEG'];
       const r=await this.req('POST','/radar-scan-rv',{nuts_codes:nutsCodes,cpv_codes:cpvCodes});
       this.rvBundeslandRadarLoading=false;
